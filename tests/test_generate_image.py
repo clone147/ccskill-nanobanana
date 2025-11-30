@@ -1,0 +1,179 @@
+"""
+Nano Banana Pro 画像生成スクリプトのテスト
+"""
+
+import os
+import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock
+
+import pytest
+
+# テスト対象モジュールのパスを追加
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from generate_image import (
+    generate_image,
+    parse_args,
+    get_output_path,
+    DEFAULT_RESOLUTION,
+    DEFAULT_ASPECT_RATIO,
+    DEFAULT_OUTPUT_DIR,
+)
+
+
+class TestParseArgs:
+    """コマンドライン引数パーサーのテスト"""
+
+    def test_prompt_only(self):
+        """プロンプトのみ指定"""
+        args = parse_args(["猫がピアノを弾いている"])
+        assert args.prompt == "猫がピアノを弾いている"
+        assert args.resolution == DEFAULT_RESOLUTION
+        assert args.aspect == DEFAULT_ASPECT_RATIO
+        assert args.output == DEFAULT_OUTPUT_DIR
+
+    def test_with_resolution(self):
+        """解像度を指定"""
+        args = parse_args(["プロンプト", "--resolution", "4K"])
+        assert args.resolution == "4K"
+
+    def test_with_aspect_ratio(self):
+        """アスペクト比を指定"""
+        args = parse_args(["プロンプト", "--aspect", "16:9"])
+        assert args.aspect == "16:9"
+
+    def test_with_output_dir(self):
+        """出力ディレクトリを指定"""
+        args = parse_args(["プロンプト", "--output", "./custom_output/"])
+        assert args.output == "./custom_output/"
+
+    def test_all_options(self):
+        """全オプションを指定"""
+        args = parse_args([
+            "風景画",
+            "--resolution", "1K",
+            "--aspect", "4:3",
+            "--output", "/tmp/images/"
+        ])
+        assert args.prompt == "風景画"
+        assert args.resolution == "1K"
+        assert args.aspect == "4:3"
+        assert args.output == "/tmp/images/"
+
+
+class TestGetOutputPath:
+    """出力パス生成のテスト"""
+
+    def test_creates_directory_if_not_exists(self):
+        """ディレクトリが存在しない場合は作成される"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "new_dir"
+            output_path = get_output_path(str(output_dir))
+            assert output_dir.exists()
+            assert output_path.parent == output_dir
+
+    def test_filename_format(self):
+        """ファイル名がタイムスタンプ形式である"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = get_output_path(tmpdir)
+            # ファイル名が YYYYMMDD_HHMMSS.png 形式であること
+            filename = output_path.name
+            assert filename.endswith(".png")
+            # 数字とアンダースコアのみで構成
+            name_without_ext = filename[:-4]
+            assert name_without_ext.replace("_", "").isdigit()
+            assert len(name_without_ext) == 15  # YYYYMMDD_HHMMSS
+
+
+class TestGenerateImage:
+    """画像生成のテスト"""
+
+    @patch("generate_image.genai")
+    def test_successful_generation(self, mock_genai):
+        """正常に画像が生成される"""
+        # モックの設定
+        mock_client = Mock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_image = Mock()
+        mock_image.save = Mock()
+
+        mock_part = Mock()
+        mock_part.text = None
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = Mock()
+        mock_response.parts = [mock_part]
+        mock_client.models.generate_content.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = generate_image(
+                prompt="テスト画像",
+                resolution="2K",
+                aspect_ratio="1:1",
+                output_dir=tmpdir
+            )
+
+            # API呼び出しの確認
+            mock_client.models.generate_content.assert_called_once()
+            call_kwargs = mock_client.models.generate_content.call_args
+            assert call_kwargs.kwargs["model"] == "gemini-3-pro-image-preview"
+
+            # 画像保存の確認
+            mock_image.save.assert_called_once()
+            assert result is not None
+            assert result.endswith(".png")
+
+    @patch("generate_image.genai")
+    def test_no_image_in_response(self, mock_genai):
+        """レスポンスに画像がない場合はNoneを返す"""
+        mock_client = Mock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_part = Mock()
+        mock_part.text = "テキストのみ"
+        mock_part.as_image.return_value = None
+
+        mock_response = Mock()
+        mock_response.parts = [mock_part]
+        mock_client.models.generate_content.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = generate_image(
+                prompt="テスト",
+                resolution="2K",
+                aspect_ratio="1:1",
+                output_dir=tmpdir
+            )
+            assert result is None
+
+    @patch("generate_image.genai")
+    def test_api_error_handling(self, mock_genai):
+        """APIエラー時に例外が発生する"""
+        mock_client = Mock()
+        mock_genai.Client.return_value = mock_client
+        mock_client.models.generate_content.side_effect = Exception("API Error")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with pytest.raises(Exception, match="API Error"):
+                generate_image(
+                    prompt="テスト",
+                    resolution="2K",
+                    aspect_ratio="1:1",
+                    output_dir=tmpdir
+                )
+
+
+class TestDefaultValues:
+    """デフォルト値のテスト"""
+
+    def test_default_resolution(self):
+        assert DEFAULT_RESOLUTION == "2K"
+
+    def test_default_aspect_ratio(self):
+        assert DEFAULT_ASPECT_RATIO == "1:1"
+
+    def test_default_output_dir(self):
+        assert DEFAULT_OUTPUT_DIR == "./generated_images"

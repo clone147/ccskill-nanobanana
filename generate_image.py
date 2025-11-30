@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""
+Nano Banana Pro 画像生成スクリプト
+
+Google Gemini 3 Pro Image (Nano Banana Pro) APIを使用して画像を生成します。
+
+使用方法:
+    python generate_image.py "プロンプト" [--resolution 2K] [--aspect 1:1] [--output ./generated_images]
+
+環境変数:
+    GEMINI_API_KEY: Google AI Studio で取得したAPIキー
+    （.env ファイルに記載可能）
+"""
+
+import argparse
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
+# このスクリプトと同じディレクトリの .env を読み込む
+_script_dir = Path(__file__).parent
+load_dotenv(_script_dir / ".env")
+
+# デフォルト値
+DEFAULT_RESOLUTION = "2K"
+DEFAULT_ASPECT_RATIO = "1:1"
+DEFAULT_OUTPUT_DIR = "./generated_images"
+
+
+def parse_args(args: list[str] | None = None) -> argparse.Namespace:
+    """コマンドライン引数をパースする"""
+    parser = argparse.ArgumentParser(
+        description="Nano Banana Pro APIで画像を生成します"
+    )
+    parser.add_argument(
+        "prompt",
+        type=str,
+        help="画像生成のプロンプト"
+    )
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        default=DEFAULT_RESOLUTION,
+        choices=["1K", "2K", "4K"],
+        help=f"出力解像度 (デフォルト: {DEFAULT_RESOLUTION})"
+    )
+    parser.add_argument(
+        "--aspect",
+        type=str,
+        default=DEFAULT_ASPECT_RATIO,
+        help=f"アスペクト比 (デフォルト: {DEFAULT_ASPECT_RATIO})"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=DEFAULT_OUTPUT_DIR,
+        help=f"出力ディレクトリ (デフォルト: {DEFAULT_OUTPUT_DIR})"
+    )
+    return parser.parse_args(args)
+
+
+def get_output_path(output_dir: str) -> Path:
+    """出力ファイルパスを生成する"""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # タイムスタンプ形式のファイル名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return output_path / f"{timestamp}.png"
+
+
+def generate_image(
+    prompt: str,
+    resolution: str,
+    aspect_ratio: str,
+    output_dir: str
+) -> str | None:
+    """
+    Nano Banana Pro APIで画像を生成する
+
+    Args:
+        prompt: 画像生成のプロンプト
+        resolution: 出力解像度 (1K, 2K, 4K)
+        aspect_ratio: アスペクト比 (例: 1:1, 16:9)
+        output_dir: 出力ディレクトリ
+
+    Returns:
+        生成された画像のファイルパス、失敗時はNone
+    """
+    client = genai.Client()
+
+    response = client.models.generate_content(
+        model="gemini-3-pro-image-preview",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["TEXT", "IMAGE"],
+            image_config=types.ImageConfig(
+                aspect_ratio=aspect_ratio,
+                image_size=resolution
+            )
+        )
+    )
+
+    # レスポンスから画像を取得して保存
+    for part in response.parts:
+        if part.text is not None:
+            print(f"[Info] {part.text}")
+        elif image := part.as_image():
+            output_path = get_output_path(output_dir)
+            image.save(str(output_path))
+            print(f"[Success] 画像を保存しました: {output_path}")
+            return str(output_path)
+
+    print("[Warning] レスポンスに画像が含まれていませんでした")
+    return None
+
+
+def main():
+    """メイン関数"""
+    args = parse_args()
+
+    try:
+        result = generate_image(
+            prompt=args.prompt,
+            resolution=args.resolution,
+            aspect_ratio=args.aspect,
+            output_dir=args.output
+        )
+        if result is None:
+            sys.exit(1)
+    except Exception as e:
+        print(f"[Error] 画像生成に失敗しました: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
