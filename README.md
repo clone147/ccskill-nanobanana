@@ -75,9 +75,22 @@ python generate_image.py "ロゴデザイン" --output ./assets/
 
 ## Claude Code スキルとして使用
 
-このリポジトリの `.claude/skills/nano-banana-pro/` に SKILL.md が含まれています。
+### 他のプロジェクトへのインストール
 
-Claude Code から画像生成が必要な場面で、このスキルが自動的に利用されます。
+シンボリックリンクを使ってインストール（推奨）：
+
+```bash
+# インストール先のプロジェクトに .claude/skills ディレクトリがなければ作成
+mkdir -p /path/to/your-project/.claude/skills
+
+# シンボリックリンクを作成
+ln -s $NANO_BANANA_PRO_DIR/.claude/skills/nano-banana-pro \
+      /path/to/your-project/.claude/skills/nano-banana-pro
+```
+
+これで Claude Code から画像生成が必要な場面で、このスキルが自動的に利用されます。
+
+本体リポジトリを `git pull` すれば、リンク先のプロジェクトでも自動的にスキルが更新されます。
 
 ## テスト
 
