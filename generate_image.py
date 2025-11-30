@@ -6,6 +6,7 @@ Google Gemini 3 Pro Image (Nano Banana Pro) APIを使用して画像を生成し
 
 使用方法:
     python generate_image.py "プロンプト" [--resolution 2K] [--aspect 1:1] [--output ./generated_images]
+    python generate_image.py "背景を変更" --reference original.png
 
 環境変数:
     GEMINI_API_KEY: Google AI Studio で取得したAPIキー
@@ -20,6 +21,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from PIL import Image
 
 # このスクリプトと同じディレクトリの .env を読み込む
 _script_dir = Path(__file__).parent
@@ -27,7 +29,7 @@ load_dotenv(_script_dir / ".env")
 
 # デフォルト値
 DEFAULT_RESOLUTION = "2K"
-DEFAULT_ASPECT_RATIO = "1:1"
+DEFAULT_ASPECT_RATIO = "16:9"
 DEFAULT_OUTPUT_DIR = "./generated_images"
 
 
@@ -60,6 +62,13 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_OUTPUT_DIR,
         help=f"出力ディレクトリ (デフォルト: {DEFAULT_OUTPUT_DIR})"
     )
+    parser.add_argument(
+        "--reference",
+        type=str,
+        action="append",
+        default=[],
+        help="参照画像のパス（複数指定可能、最大14枚）"
+    )
     return parser.parse_args(args)
 
 
@@ -77,7 +86,8 @@ def generate_image(
     prompt: str,
     resolution: str,
     aspect_ratio: str,
-    output_dir: str
+    output_dir: str,
+    reference_images: list[str] | None = None
 ) -> str | None:
     """
     Nano Banana Pro APIで画像を生成する
@@ -87,15 +97,28 @@ def generate_image(
         resolution: 出力解像度 (1K, 2K, 4K)
         aspect_ratio: アスペクト比 (例: 1:1, 16:9)
         output_dir: 出力ディレクトリ
+        reference_images: 参照画像のパスリスト（最大14枚）
 
     Returns:
         生成された画像のファイルパス、失敗時はNone
     """
     client = genai.Client()
 
+    # コンテンツの構築
+    if reference_images:
+        # 参照画像がある場合はリストで渡す
+        contents: list = []
+        for image_path in reference_images:
+            img = Image.open(image_path)
+            contents.append(img)
+        contents.append(prompt)
+    else:
+        # 参照画像がない場合はプロンプトのみ
+        contents = prompt
+
     response = client.models.generate_content(
         model="gemini-3-pro-image-preview",
-        contents=prompt,
+        contents=contents,
         config=types.GenerateContentConfig(
             response_modalities=["TEXT", "IMAGE"],
             image_config=types.ImageConfig(
@@ -123,12 +146,18 @@ def main():
     """メイン関数"""
     args = parse_args()
 
+    # 参照画像の数をチェック
+    if args.reference and len(args.reference) > 14:
+        print("[Error] 参照画像は最大14枚までです")
+        sys.exit(1)
+
     try:
         result = generate_image(
             prompt=args.prompt,
             resolution=args.resolution,
             aspect_ratio=args.aspect,
-            output_dir=args.output
+            output_dir=args.output,
+            reference_images=args.reference if args.reference else None
         )
         if result is None:
             sys.exit(1)

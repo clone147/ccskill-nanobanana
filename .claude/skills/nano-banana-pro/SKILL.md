@@ -32,8 +32,9 @@ $NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "プ
 ### オプション
 
 - `--resolution`: 解像度（1K, 2K, 4K）デフォルト: 2K
-- `--aspect`: アスペクト比（1:1, 16:9, 9:16, 4:3 など）デフォルト: 1:1
+- `--aspect`: アスペクト比（1:1, 16:9, 9:16, 4:3 など）デフォルト: 16:9
 - `--output`: 出力ディレクトリ デフォルト: ./generated_images
+- `--reference`: 参照画像のパス（複数指定可能、最大14枚）
 
 ### 使用例
 
@@ -51,6 +52,24 @@ $NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "夕
 ```bash
 $NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "ロゴデザイン" --output ./assets/images
 ```
+
+### 参照画像を使った編集
+
+既存の画像を参照して編集・変更ができます：
+
+```bash
+# 背景を変更
+$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "背景を夕焼けに変更して" --reference ./original.png
+
+# 複数の参照画像を使用（ポーズ、スタイルなど）
+$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "この人物をこのポーズで描いて" --reference ./person.png --reference ./pose.png
+```
+
+参照画像の用途：
+- 画像の部分編集（背景変更、色調整など）
+- スタイル転送（別の画像のスタイルを適用）
+- キャラクター一貫性の維持（同じ人物を異なるシーンで）
+- 複数画像の合成
 
 ## 出力
 

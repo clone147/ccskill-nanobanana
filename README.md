@@ -57,8 +57,9 @@ python generate_image.py "猫がピアノを弾いている"
 | オプション | 説明 | デフォルト | 選択肢 |
 |------------|------|------------|--------|
 | `--resolution` | 出力解像度 | 2K | 1K, 2K, 4K |
-| `--aspect` | アスペクト比 | 1:1 | 1:1, 16:9, 9:16, 4:3 など |
+| `--aspect` | アスペクト比 | 16:9 | 1:1, 16:9, 9:16, 4:3 など |
 | `--output` | 出力ディレクトリ | ./generated_images | 任意のパス |
+| `--reference` | 参照画像（複数指定可、最大14枚） | なし | 画像ファイルパス |
 
 ### 使用例
 
@@ -72,6 +73,26 @@ python generate_image.py "山岳風景" --resolution 4K --aspect 16:9
 # 出力先を指定
 python generate_image.py "ロゴデザイン" --output ./assets/
 ```
+
+### 参照画像を使った編集
+
+既存の画像を参照して編集・変更ができます：
+
+```bash
+# 背景を変更
+python generate_image.py "背景を夕焼けに変更して" --reference ./original.png
+
+# 複数の参照画像を使用
+python generate_image.py "この人物をこのポーズで描いて" \
+    --reference ./person.png \
+    --reference ./pose.png
+```
+
+参照画像の用途：
+- 画像の部分編集（背景変更、色調整など）
+- スタイル転送（別の画像のスタイルを適用）
+- キャラクター一貫性の維持
+- 複数画像の合成
 
 ## Claude Code スキルとして使用
 
@@ -105,10 +126,6 @@ python -m pytest tests/ -v
 - **出力形式**: PNG
 - **ファイル名**: タイムスタンプ形式（例: `20251130_153045.png`）
 - **ウォーターマーク**: 生成画像には SynthID が埋め込まれます
-
-## TODO
-
-- [ ] APIキーを取得して実際の動作確認を行う
 
 ## ライセンス
 
