@@ -166,6 +166,76 @@ class TestGenerateImage:
                 )
 
 
+class TestReferenceImageOption:
+    """参照画像オプションのテスト"""
+
+    def test_no_reference_image(self):
+        """参照画像なしの場合は空リスト"""
+        args = parse_args(["プロンプト"])
+        assert args.reference == []
+
+    def test_single_reference_image(self):
+        """参照画像を1つ指定"""
+        args = parse_args(["プロンプト", "--reference", "image.png"])
+        assert args.reference == ["image.png"]
+
+    def test_multiple_reference_images(self):
+        """参照画像を複数指定"""
+        args = parse_args([
+            "プロンプト",
+            "--reference", "image1.png",
+            "--reference", "image2.png",
+            "--reference", "image3.png"
+        ])
+        assert args.reference == ["image1.png", "image2.png", "image3.png"]
+
+    @patch("generate_image.genai")
+    @patch("generate_image.Image")
+    def test_generate_with_reference_image(self, mock_pil_image, mock_genai):
+        """参照画像付きで画像生成"""
+        # モックの設定
+        mock_client = Mock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_loaded_image = Mock()
+        mock_pil_image.open.return_value = mock_loaded_image
+
+        mock_image = Mock()
+        mock_image.save = Mock()
+
+        mock_part = Mock()
+        mock_part.text = None
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = Mock()
+        mock_response.parts = [mock_part]
+        mock_client.models.generate_content.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # ダミーの参照画像ファイルを作成
+            ref_image_path = Path(tmpdir) / "reference.png"
+            ref_image_path.touch()
+
+            result = generate_image(
+                prompt="背景を夕焼けに変更",
+                resolution="2K",
+                aspect_ratio="1:1",
+                output_dir=tmpdir,
+                reference_images=[str(ref_image_path)]
+            )
+
+            # 画像が読み込まれたことを確認
+            mock_pil_image.open.assert_called_once_with(str(ref_image_path))
+
+            # API呼び出しで画像が含まれていることを確認
+            call_kwargs = mock_client.models.generate_content.call_args
+            contents = call_kwargs.kwargs["contents"]
+            assert mock_loaded_image in contents
+            assert "背景を夕焼けに変更" in contents
+
+            assert result is not None
+
+
 class TestDefaultValues:
     """デフォルト値のテスト"""
 
@@ -173,7 +243,7 @@ class TestDefaultValues:
         assert DEFAULT_RESOLUTION == "2K"
 
     def test_default_aspect_ratio(self):
-        assert DEFAULT_ASPECT_RATIO == "1:1"
+        assert DEFAULT_ASPECT_RATIO == "16:9"
 
     def test_default_output_dir(self):
         assert DEFAULT_OUTPUT_DIR == "./generated_images"
