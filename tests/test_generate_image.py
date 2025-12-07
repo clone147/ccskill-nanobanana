@@ -236,6 +236,37 @@ class TestReferenceImageOption:
             assert result is not None
 
 
+class TestReferenceImageValidation:
+    """参照画像の検証テスト"""
+
+    def test_nonexistent_reference_image_returns_none(self):
+        """存在しない参照画像を指定した場合はNoneを返す"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = generate_image(
+                prompt="テスト",
+                resolution="2K",
+                aspect_ratio="1:1",
+                output_dir=tmpdir,
+                reference_images=["/nonexistent/path/to/image.png"]
+            )
+            assert result is None
+
+    def test_nonexistent_reference_image_prints_error(self, capsys):
+        """存在しない参照画像を指定した場合はエラーメッセージを出力"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generate_image(
+                prompt="テスト",
+                resolution="2K",
+                aspect_ratio="1:1",
+                output_dir=tmpdir,
+                reference_images=["/nonexistent/path/to/image.png"]
+            )
+            captured = capsys.readouterr()
+            assert "[Error]" in captured.out
+            assert "参照画像が見つかりません" in captured.out
+            assert "/nonexistent/path/to/image.png" in captured.out
+
+
 class TestDefaultValues:
     """デフォルト値のテスト"""
 
