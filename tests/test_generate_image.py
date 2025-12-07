@@ -20,6 +20,7 @@ from generate_image import (
     DEFAULT_RESOLUTION,
     DEFAULT_ASPECT_RATIO,
     DEFAULT_OUTPUT_DIR,
+    MIME_TO_EXT,
 )
 
 
@@ -100,8 +101,12 @@ class TestGenerateImage:
         mock_image = Mock()
         mock_image.save = Mock()
 
+        mock_inline_data = Mock()
+        mock_inline_data.mime_type = "image/png"
+
         mock_part = Mock()
         mock_part.text = None
+        mock_part.inline_data = mock_inline_data
         mock_part.as_image.return_value = mock_image
 
         mock_response = Mock()
@@ -134,7 +139,7 @@ class TestGenerateImage:
 
         mock_part = Mock()
         mock_part.text = "テキストのみ"
-        mock_part.as_image.return_value = None
+        mock_part.inline_data = None
 
         mock_response = Mock()
         mock_response.parts = [mock_part]
@@ -203,8 +208,12 @@ class TestReferenceImageOption:
         mock_image = Mock()
         mock_image.save = Mock()
 
+        mock_inline_data = Mock()
+        mock_inline_data.mime_type = "image/jpeg"
+
         mock_part = Mock()
         mock_part.text = None
+        mock_part.inline_data = mock_inline_data
         mock_part.as_image.return_value = mock_image
 
         mock_response = Mock()
@@ -278,3 +287,99 @@ class TestDefaultValues:
 
     def test_default_output_dir(self):
         assert DEFAULT_OUTPUT_DIR == "./generated_images"
+
+
+class TestGetOutputPathWithMimeType:
+    """MIMEタイプ指定付き出力パス生成のテスト"""
+
+    def test_output_path_png(self):
+        """PNG MIMEタイプの拡張子"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = get_output_path(tmpdir, "image/png")
+            assert output_path.suffix == ".png"
+
+    def test_output_path_jpeg(self):
+        """JPEG MIMEタイプの拡張子"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = get_output_path(tmpdir, "image/jpeg")
+            assert output_path.suffix == ".jpg"
+
+    def test_output_path_webp(self):
+        """WebP MIMEタイプの拡張子"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = get_output_path(tmpdir, "image/webp")
+            assert output_path.suffix == ".webp"
+
+    def test_output_path_unknown_defaults_to_png(self):
+        """未知のMIMEタイプはPNGにフォールバック"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = get_output_path(tmpdir, "image/unknown")
+            assert output_path.suffix == ".png"
+
+
+class TestMimeTypeDetection:
+    """MIMEタイプ自動検出のテスト"""
+
+    @patch("generate_image.genai")
+    def test_jpeg_mime_type_detection(self, mock_genai):
+        """JPEG MIMEタイプを検出して.jpg拡張子で保存"""
+        mock_client = Mock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_image = Mock()
+        mock_image.save = Mock()
+
+        mock_inline_data = Mock()
+        mock_inline_data.mime_type = "image/jpeg"
+
+        mock_part = Mock()
+        mock_part.text = None
+        mock_part.inline_data = mock_inline_data
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = Mock()
+        mock_response.parts = [mock_part]
+        mock_client.models.generate_content.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = generate_image(
+                prompt="テスト画像",
+                resolution="2K",
+                aspect_ratio="1:1",
+                output_dir=tmpdir
+            )
+
+            assert result is not None
+            assert result.endswith(".jpg")
+
+    @patch("generate_image.genai")
+    def test_webp_mime_type_detection(self, mock_genai):
+        """WebP MIMEタイプを検出して.webp拡張子で保存"""
+        mock_client = Mock()
+        mock_genai.Client.return_value = mock_client
+
+        mock_image = Mock()
+        mock_image.save = Mock()
+
+        mock_inline_data = Mock()
+        mock_inline_data.mime_type = "image/webp"
+
+        mock_part = Mock()
+        mock_part.text = None
+        mock_part.inline_data = mock_inline_data
+        mock_part.as_image.return_value = mock_image
+
+        mock_response = Mock()
+        mock_response.parts = [mock_part]
+        mock_client.models.generate_content.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = generate_image(
+                prompt="テスト画像",
+                resolution="2K",
+                aspect_ratio="1:1",
+                output_dir=tmpdir
+            )
+
+            assert result is not None
+            assert result.endswith(".webp")

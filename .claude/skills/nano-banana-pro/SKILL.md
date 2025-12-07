@@ -74,7 +74,8 @@ $CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.p
 ## 出力
 
 - 画像は指定されたディレクトリ（デフォルト: `./generated_images`）に保存されます
-- ファイル名はタイムスタンプ形式（例: `20251130_153045.png`）
+- ファイル名はタイムスタンプ形式（例: `20251130_153045.png`、`20251130_153045.jpg`）
+- 拡張子はAPIが返す画像の形式に応じて自動的に決定されます（PNG/JPEG/WebP）
 
 ## 注意事項
 

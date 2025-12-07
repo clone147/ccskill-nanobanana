@@ -32,6 +32,13 @@ DEFAULT_RESOLUTION = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"
 DEFAULT_OUTPUT_DIR = "./generated_images"
 
+# MIMEタイプから拡張子へのマッピング
+MIME_TO_EXT = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+
 
 def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     """コマンドライン引数をパースする"""
@@ -72,14 +79,15 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def get_output_path(output_dir: str) -> Path:
+def get_output_path(output_dir: str, mime_type: str = "image/png") -> Path:
     """出力ファイルパスを生成する"""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
     # タイムスタンプ形式のファイル名
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return output_path / f"{timestamp}.png"
+    ext = MIME_TO_EXT.get(mime_type, ".png")
+    return output_path / f"{timestamp}{ext}"
 
 
 def generate_image(
@@ -139,8 +147,11 @@ def generate_image(
     for part in response.parts:
         if part.text is not None:
             print(f"[Info] {part.text}")
-        elif image := part.as_image():
-            output_path = get_output_path(output_dir)
+        elif part.inline_data is not None:
+            # APIが返す画像の実際のMIMEタイプを検出
+            mime_type = part.inline_data.mime_type or "image/png"
+            image = part.as_image()
+            output_path = get_output_path(output_dir, mime_type)
             image.save(str(output_path))
             print(f"[Success] 画像を保存しました: {output_path}")
             return str(output_path)
