@@ -102,6 +102,13 @@ def generate_image(
     Returns:
         生成された画像のファイルパス、失敗時はNone
     """
+    # 参照画像の存在確認
+    if reference_images:
+        for image_path in reference_images:
+            if not Path(image_path).exists():
+                print(f"[Error] 参照画像が見つかりません: {image_path}")
+                return None
+
     client = genai.Client()
 
     # コンテンツの構築

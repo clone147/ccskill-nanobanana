@@ -15,18 +15,18 @@ description: |
 
 ## 前提条件
 
-- 環境変数 `NANO_BANANA_PRO_DIR` にこのスキルのリポジトリパスを設定してください
+- 環境変数 `CCSKILL_NANOBANANA_DIR` にこのスキルのリポジトリパスを設定してください
   ```bash
-  export NANO_BANANA_PRO_DIR="$HOME/projects/claudecode-skill-nanobananapro"
+  export CCSKILL_NANOBANANA_DIR="$HOME/projects/ccskill-nanobanana"
   ```
-- 環境変数 `GEMINI_API_KEY` が設定されている必要があります（または `$NANO_BANANA_PRO_DIR/.env` に記載）
+- 環境変数 `GEMINI_API_KEY` が設定されている必要があります（または `$CCSKILL_NANOBANANA_DIR/.env` に記載）
 
 ## 使い方
 
 以下のコマンドで画像を生成します：
 
 ```bash
-$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "プロンプト"
+$CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.py "プロンプト"
 ```
 
 ### オプション
@@ -40,17 +40,17 @@ $NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "プ
 
 基本的な画像生成：
 ```bash
-$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "猫がピアノを弾いている水彩画"
+$CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.py "猫がピアノを弾いている水彩画"
 ```
 
 高解像度でワイド画像を生成：
 ```bash
-$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "夕焼けの海岸線" --resolution 4K --aspect 16:9
+$CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.py "夕焼けの海岸線" --resolution 4K --aspect 16:9
 ```
 
 特定のディレクトリに出力：
 ```bash
-$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "ロゴデザイン" --output ./assets/images
+$CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.py "ロゴデザイン" --output ./assets/images
 ```
 
 ### 参照画像を使った編集
@@ -59,10 +59,10 @@ $NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "ロ
 
 ```bash
 # 背景を変更
-$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "背景を夕焼けに変更して" --reference ./original.png
+$CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.py "背景を夕焼けに変更して" --reference ./original.png
 
 # 複数の参照画像を使用（ポーズ、スタイルなど）
-$NANO_BANANA_PRO_DIR/venv/bin/python $NANO_BANANA_PRO_DIR/generate_image.py "この人物をこのポーズで描いて" --reference ./person.png --reference ./pose.png
+$CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.py "この人物をこのポーズで描いて" --reference ./person.png --reference ./pose.png
 ```
 
 参照画像の用途：
