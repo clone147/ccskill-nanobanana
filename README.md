@@ -1,8 +1,14 @@
 # Nano Banana Pro 画像生成スキル
 
+[English README](README.en.md)
+
 Google Nano Banana Pro (Gemini 3 Pro Image) API を使用した Claude Code 用画像生成スキルです。画像生成スクリプト単体として使用することもできます。
 
 ## セットアップ
+
+### 必要環境
+
+- **Python 3.10 以上**（`google-genai` ライブラリの要件）
 
 ### 1. リポジトリのクローン
 
@@ -36,6 +42,7 @@ GEMINI_API_KEY=your-api-key-here
 ### 4. 依存パッケージのインストール
 
 ```bash
+# Python 3.10 以上で venv を作成
 python3 -m venv venv
 source venv/bin/activate
 python -m pip install -r requirements.txt
@@ -132,58 +139,6 @@ python -m pytest tests/ -v
 - **出力形式**: APIが返す形式に応じて自動決定（PNG/JPEG/WebP）
 - **ファイル名**: タイムスタンプ形式（例: `20251130_153045.png`、`20251130_153045.jpg`）
 - **ウォーターマーク**: 生成画像には SynthID が埋め込まれます
-
-## トラブルシューティング
-
-### APIキーのエラー
-
-```
-ValueError: Missing key inputs argument! To use the Google AI API, provide (`api_key`) arguments.
-```
-
-**原因**: 環境変数 `GEMINI_API_KEY` が設定されていないか、`.env` ファイルが正しく読み込まれていません。
-
-**解決方法**:
-1. `.env` ファイルが存在するか確認
-2. APIキーが正しく設定されているか確認
-3. スクリプトと同じディレクトリに `.env` があるか確認
-
-### 課金に関するエラー
-
-```
-google.api_core.exceptions.PermissionDenied: 403 Billing account not configured
-```
-
-**原因**: Google Cloud の課金設定がされていません。
-
-**解決方法**:
-1. [Google AI Studio](https://aistudio.google.com/) でプロジェクトの課金設定を確認
-2. 支払い方法を登録
-3. Nano Banana Pro は無料枠がないため、課金が必須です
-
-### レート制限エラー
-
-```
-google.api_core.exceptions.ResourceExhausted: 429 Resource has been exhausted
-```
-
-**原因**: API呼び出しの頻度制限に達しました。
-
-**解決方法**:
-1. しばらく待ってから再試行
-2. 連続して大量のリクエストを送らないよう注意
-
-### 参照画像のエラー
-
-```
-[Error] 参照画像が見つかりません: /path/to/image.png
-```
-
-**原因**: 指定した参照画像ファイルが存在しません。
-
-**解決方法**:
-1. ファイルパスが正しいか確認
-2. 相対パスの場合、カレントディレクトリを確認
 
 ## ライセンス
 
