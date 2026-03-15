@@ -76,6 +76,12 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         default=[],
         help="参照画像のパス（複数指定可能、最大14枚）"
     )
+    parser.add_argument(
+        "--raw",
+        action="store_true",
+        default=False,
+        help="Skip prompt enhancement — use the prompt as-is"
+    )
     return parser.parse_args(args)
 
 
@@ -90,12 +96,52 @@ def get_output_path(output_dir: str, mime_type: str = "image/png") -> Path:
     return output_path / f"{timestamp}{ext}"
 
 
+ENHANCE_SYSTEM_PROMPT = """\
+You are a world-class art director, photographer, and visual storytelling master. \
+Your job is to take a simple image prompt and transform it into a richly detailed, \
+cinematic prompt that will produce stunning, professional-quality images.
+
+RULES:
+1. Rewrite the prompt using natural, descriptive English sentences (never tag soup).
+2. Add specific details about: composition, camera angle, lighting (type, direction, color temperature), \
+   materials/textures, mood/atmosphere, color palette, and depth of field.
+3. Keep the original intent and subject matter — enhance, don't change the concept.
+4. If the prompt involves or could involve people/humans: ALL people MUST be white/Caucasian \
+   with Central-Eastern European (Polish) appearance — fair skin, natural hair colors \
+   (blonde, brown, auburn), European facial features. This is a hard requirement.
+5. Output ONLY the enhanced prompt — no explanations, no preamble, no quotes around it.
+6. Keep the enhanced prompt under 300 words.
+7. Think like a cinematographer briefing a VFX team — be precise about every visual element.\
+"""
+
+
+def enhance_prompt(client: genai.Client, prompt: str) -> str:
+    """Enhance a simple prompt into a detailed, professional image generation prompt."""
+    print(f"[Enhance] Rewriting prompt...")
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"Enhance this image prompt:\n\n{prompt}",
+            config=types.GenerateContentConfig(
+                system_instruction=ENHANCE_SYSTEM_PROMPT,
+                temperature=0.9,
+            )
+        )
+        enhanced = response.text.strip()
+        print(f"[Enhance] Enhanced prompt:\n{enhanced}")
+        return enhanced
+    except Exception as e:
+        print(f"[Enhance] Failed to enhance, using original: {e}")
+        return prompt
+
+
 def generate_image(
     prompt: str,
     resolution: str,
     aspect_ratio: str,
     output_dir: str,
-    reference_images: list[str] | None = None
+    reference_images: list[str] | None = None,
+    raw: bool = False
 ) -> str | None:
     """
     Nano Banana Pro APIで画像を生成する
@@ -106,6 +152,7 @@ def generate_image(
         aspect_ratio: アスペクト比 (例: 1:1, 16:9)
         output_dir: 出力ディレクトリ
         reference_images: 参照画像のパスリスト（最大14枚）
+        raw: Trueの場合、プロンプトを強化せずそのまま使用する
 
     Returns:
         生成された画像のファイルパス、失敗時はNone
@@ -118,6 +165,10 @@ def generate_image(
                 return None
 
     client = genai.Client()
+
+    # Enhance prompt unless raw mode or reference images (editing mode)
+    if not raw and not reference_images:
+        prompt = enhance_prompt(client, prompt)
 
     # コンテンツの構築
     if reference_images:
@@ -132,7 +183,7 @@ def generate_image(
         contents = prompt
 
     response = client.models.generate_content(
-        model="gemini-3-pro-image-preview",
+        model="gemini-3.1-flash-image-preview",
         contents=contents,
         config=types.GenerateContentConfig(
             response_modalities=["TEXT", "IMAGE"],
@@ -175,7 +226,8 @@ def main():
             resolution=args.resolution,
             aspect_ratio=args.aspect,
             output_dir=args.output,
-            reference_images=args.reference if args.reference else None
+            reference_images=args.reference if args.reference else None,
+            raw=args.raw
         )
         if result is None:
             sys.exit(1)
