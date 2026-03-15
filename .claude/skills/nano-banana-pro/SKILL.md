@@ -2,7 +2,7 @@
 name: nano-banana-pro
 description: |
   Skill for image generation.
-  Uses Google Nano Banana Pro (Gemini 3 Pro Image) API to generate high-quality images.
+  Uses Google Nano Banana 2 (Gemini 3.1 Flash Image) API to generate high-quality images.
   Supports logos, infographics, illustrations, photorealistic images, and more.
 ---
 
@@ -35,6 +35,14 @@ $CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.p
 - `--aspect`: Aspect ratio (1:1, 16:9, 9:16, 4:3, etc.) Default: 16:9
 - `--output`: Output directory Default: ./generated_images
 - `--reference`: Reference image path (multiple allowed, up to 14)
+- `--format`: Output format (jpg, png, webp) Default: jpg
+- `--quality`: Output quality 1-100 Default: 85
+- `--raw`: Skip automatic prompt enhancement — use the prompt exactly as provided
+
+### Language
+
+All text rendered in generated images defaults to **Polish** language.
+The prompt enhancer automatically translates any English text to Polish.
 
 ### Examples
 
@@ -288,8 +296,10 @@ Sprites:
 ## Output
 
 - Images are saved to the specified directory (default: `./generated_images`)
-- Filename format is timestamp (e.g., `20251130_153045.png`, `20251130_153045.jpg`)
-- File extension is automatically determined based on the API response format (PNG/JPEG/WebP)
+- Filename format is timestamp (e.g., `20251130_153045.jpg`)
+- Default output format is **JPG** with quality 85 (good balance of quality and file size)
+- Use `--format webp --quality 60` for smaller web-optimized files
+- Use `--format png` for lossless output
 
 ## Notes
 
