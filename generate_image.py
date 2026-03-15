@@ -98,6 +98,18 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_QUALITY,
         help=f"Output quality 1-100 (default: {DEFAULT_QUALITY})"
     )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        default="pl",
+        help="Language for text in images: 'pl' (Polish, default), 'en' (English), 'none' (suppress all text)"
+    )
+    parser.add_argument(
+        "--text",
+        type=str,
+        default=None,
+        help="Explicit text to render in the image (in target language)"
+    )
     return parser.parse_args(args)
 
 
@@ -111,7 +123,7 @@ def get_output_path(output_dir: str, ext: str = ".png") -> Path:
     return output_path / f"{timestamp}{ext}"
 
 
-ENHANCE_SYSTEM_PROMPT = """\
+_ENHANCE_BASE = """\
 You are a world-class art director, photographer, and visual storytelling master. \
 Your job is to take a simple image prompt and transform it into a richly detailed, \
 cinematic prompt that will produce stunning, professional-quality images.
@@ -126,24 +138,59 @@ RULES:
    (blonde, brown, auburn), European facial features. This is a hard requirement.
 5. Output ONLY the enhanced prompt — no explanations, no preamble, no quotes around it.
 6. Keep the enhanced prompt under 300 words.
-7. Think like a cinematographer briefing a VFX team — be precise about every visual element.
-8. CRITICAL — LANGUAGE RULE: If the image contains ANY visible text, labels, signs, titles, \
-   captions, UI elements, or written words — ALL text MUST be in POLISH language. \
-   Never use English text in the image. Translate any English text from the original prompt to Polish. \
-   For example: "Start Now" → "Rozpocznij", "Learn More" → "Dowiedz się więcej", \
-   "AI Solutions" → "Rozwiązania AI". This applies to every piece of text visible in the final image.\
+7. Think like a cinematographer briefing a VFX team — be precise about every visual element.\
+"""
+
+_RULE8_NO_TEXT = """
+8. CRITICAL — NO TEXT RULE: The image MUST NOT contain ANY visible text, letters, words, \
+   numbers, labels, titles, captions, UI text, signs, watermarks, buttons, menus, or written \
+   characters of any kind. This is absolute — zero exceptions. \
+   If the scene includes screens, monitors, dashboards, or phones — show them with abstract \
+   visualizations, colorful graphs, bokeh/blurred content, or geometric patterns instead of \
+   any readable text or characters. \
+   REMOVE any text-containing elements from your enhanced prompt. Replace descriptions like \
+   "dashboard showing analytics" with "dashboard displaying abstract colorful data visualizations \
+   with no readable text". \
+   Add this sentence at the END of your enhanced prompt: \
+   "Absolutely no visible text, letters, words, labels, or written characters anywhere in the image." \
+   FALLBACK: If the image model ignores this and renders text anyway, any text that appears \
+   MUST be in Polish language, never English.\
+"""
+
+_RULE8_POLISH_TEXT = """
+8. CRITICAL — TEXT RULE: Render this exact Polish text on the sign/wall/surface: "{text}" \
+   Use elegant, legible typography that matches the scene aesthetic. \
+   Do NOT add any other text, labels, or words anywhere in the image. \
+   Do NOT include formatting markers, asterisks, colons, or meta-instructions in the rendered text. \
+   The ONLY visible text in the entire image should be: "{text}"\
+"""
+
+_RULE8_ENGLISH = """
+8. Text in the image (if any) should be in English.\
 """
 
 
-def enhance_prompt(client: genai.Client, prompt: str) -> str:
+def _build_enhance_prompt(lang: str, text: str | None) -> str:
+    """Build the system prompt for the enhancer based on language and text settings."""
+    if text:
+        rule8 = _RULE8_POLISH_TEXT.format(text=text) if lang == "pl" else _RULE8_ENGLISH
+    elif lang in ("pl", "none"):
+        rule8 = _RULE8_NO_TEXT
+    else:
+        rule8 = _RULE8_ENGLISH
+    return _ENHANCE_BASE + rule8
+
+
+def enhance_prompt(client: genai.Client, prompt: str, lang: str = "pl", text: str | None = None) -> str:
     """Enhance a simple prompt into a detailed, professional image generation prompt."""
-    print(f"[Enhance] Rewriting prompt...")
+    print(f"[Enhance] Rewriting prompt (lang={lang}, text={'yes' if text else 'no'})...")
+    system_prompt = _build_enhance_prompt(lang, text)
     try:
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=f"Enhance this image prompt:\n\n{prompt}",
             config=types.GenerateContentConfig(
-                system_instruction=ENHANCE_SYSTEM_PROMPT,
+                system_instruction=system_prompt,
                 temperature=0.9,
             )
         )
@@ -155,6 +202,67 @@ def enhance_prompt(client: genai.Client, prompt: str) -> str:
         return prompt
 
 
+def localize_text(
+    client: genai.Client,
+    image_path: str,
+    lang: str,
+    aspect_ratio: str,
+    resolution: str,
+    output_format: str,
+    quality: int,
+) -> str | None:
+    """Second pass: translate any visible text in the image to the target language."""
+    lang_name = {"pl": "Polish", "en": "English"}.get(lang, lang)
+    print(f"[Localize] Translating text to {lang_name}...")
+    img = PILImage.open(image_path)
+
+    prompt = (
+        f"Find ALL visible text, labels, UI elements, signs, captions, and written words "
+        f"in this image. Translate every piece of text to {lang_name} language. "
+        f"Keep the exact same visual style, fonts, colors, layout, and positioning. "
+        f"Only change the language of the text. If no text is found, return the image unchanged."
+    )
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-image-preview",
+            contents=[img, prompt],
+            config=types.GenerateContentConfig(
+                response_modalities=["TEXT", "IMAGE"],
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect_ratio,
+                    image_size=resolution,
+                )
+            )
+        )
+
+        for part in response.parts:
+            if part.text is not None:
+                print(f"[Localize] {part.text}")
+            elif part.inline_data is not None:
+                raw_data = part.inline_data.data
+                pil_image = PILImage.open(io.BytesIO(raw_data))
+                output_path = Path(image_path)
+
+                if output_format == "jpg":
+                    if pil_image.mode in ("RGBA", "LA", "P"):
+                        pil_image = pil_image.convert("RGB")
+                    pil_image.save(str(output_path), "JPEG", quality=quality, optimize=True)
+                elif output_format == "webp":
+                    pil_image.save(str(output_path), "WEBP", quality=quality, method=6)
+                else:
+                    pil_image.save(str(output_path), "PNG", optimize=True)
+
+                size_kb = output_path.stat().st_size / 1024
+                print(f"[Localize] Saved: {output_path} ({size_kb:.0f} KB)")
+                return str(output_path)
+
+        print("[Localize] No image in response, keeping original")
+    except Exception as e:
+        print(f"[Localize] Failed: {e}, keeping original")
+    return image_path
+
+
 def generate_image(
     prompt: str,
     resolution: str,
@@ -164,6 +272,8 @@ def generate_image(
     raw: bool = False,
     output_format: str = DEFAULT_FORMAT,
     quality: int = DEFAULT_QUALITY,
+    lang: str = "pl",
+    text: str | None = None,
 ) -> str | None:
     """
     Nano Banana Pro APIで画像を生成する
@@ -192,7 +302,7 @@ def generate_image(
 
     # Enhance prompt unless raw mode or reference images (editing mode)
     if not raw and not reference_images:
-        prompt = enhance_prompt(client, prompt)
+        prompt = enhance_prompt(client, prompt, lang=lang, text=text)
 
     # コンテンツの構築
     if reference_images:
@@ -243,6 +353,15 @@ def generate_image(
 
             size_kb = output_path.stat().st_size / 1024
             print(f"[Success] Saved: {output_path} ({size_kb:.0f} KB, {output_format.upper()} q{quality})")
+
+            # Localization pass: translate text to target language if text was requested
+            if text and lang == "pl":
+                result_path = localize_text(
+                    client, str(output_path), lang, aspect_ratio, resolution,
+                    output_format, quality,
+                )
+                return result_path
+
             return str(output_path)
 
     print("[Warning] レスポンスに画像が含まれていませんでした")
@@ -268,6 +387,8 @@ def main():
             raw=args.raw,
             output_format=args.format,
             quality=args.quality,
+            lang=args.lang,
+            text=args.text,
         )
         if result is None:
             sys.exit(1)

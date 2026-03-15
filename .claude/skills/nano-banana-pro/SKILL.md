@@ -38,11 +38,17 @@ $CCSKILL_NANOBANANA_DIR/venv/bin/python $CCSKILL_NANOBANANA_DIR/generate_image.p
 - `--format`: Output format (jpg, png, webp) Default: jpg
 - `--quality`: Output quality 1-100 Default: 85
 - `--raw`: Skip automatic prompt enhancement — use the prompt exactly as provided
+- `--lang`: Language for text in images: `pl` (default), `en`, `none` (suppress all text)
+- `--text`: Explicit text to render in the image (triggers localization pass)
 
-### Language
+### Language & Text Behavior
 
-All text rendered in generated images defaults to **Polish** language.
-The prompt enhancer automatically translates any English text to Polish.
+By default (`--lang pl`), the skill **aggressively suppresses all text** in generated images.
+This is because image models default to English text and Polish text is unreliable.
+
+- **No text needed** (default): Screens, dashboards, UI elements show abstract visuals instead of text
+- **Polish text needed**: Use `--text "Twój tekst"` to explicitly request Polish text. This triggers a two-step process: generate image, then localize text to Polish via reference image
+- **English text**: Use `--lang en` for English text behavior
 
 ### Examples
 
